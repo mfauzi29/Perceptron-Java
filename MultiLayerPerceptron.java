@@ -291,6 +291,8 @@ public class MultiLayerPerceptron {
                     bestHidden = hidden;
                     bestLearningRate = learningRate;
                     Files.copy(candidateLoss, bestLossFile, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                    writeLossSvg(bestLossFile, outputDirectory.resolve(
+                            file.getFileName().toString().replace(".csv", "-loss.svg")));
                 }
             }
         }
@@ -315,6 +317,58 @@ public class MultiLayerPerceptron {
                         split.testY[row].equals(labelIds.keySet().toArray()[prediction]) ? "benar" : "salah");
             }
         }
+    }
+
+    private static void writeLossSvg(Path lossFile, Path svgFile) throws IOException {
+        List<String> lines = Files.readAllLines(lossFile);
+        List<Double> losses = new ArrayList<>();
+        for (int index = 1; index < lines.size(); index++) {
+            String[] columns = lines.get(index).split(",", -1);
+            if (columns.length == 2) {
+                losses.add(Double.parseDouble(columns[1]));
+            }
+        }
+        if (losses.isEmpty()) {
+            return;
+        }
+
+        int width = 900;
+        int height = 500;
+        int left = 70;
+        int right = 25;
+        int top = 35;
+        int bottom = 55;
+        double maximum = Collections.max(losses);
+        double minimum = Collections.min(losses);
+        double range = maximum - minimum;
+        if (range == 0.0) {
+            range = 1.0;
+        }
+        StringBuilder svg = new StringBuilder();
+        svg.append("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"")
+                .append(width).append("\" height=\"").append(height)
+                .append("\" viewBox=\"0 0 ").append(width).append(" ").append(height).append("\">\n")
+                .append("<rect width=\"100%\" height=\"100%\" fill=\"white\"/>\n")
+                .append("<text x=\"450\" y=\"24\" text-anchor=\"middle\" font-size=\"18\">Training Loss</text>\n")
+                .append("<line x1=\"").append(left).append("\" y1=\"").append(top)
+                .append("\" x2=\"").append(left).append("\" y2=\"").append(height - bottom)
+                .append("\" stroke=\"#333\"/>\n")
+                .append("<line x1=\"").append(left).append("\" y1=\"").append(height - bottom)
+                .append("\" x2=\"").append(width - right).append("\" y2=\"").append(height - bottom)
+                .append("\" stroke=\"#333\"/>\n");
+
+        StringBuilder points = new StringBuilder();
+        for (int index = 0; index < losses.size(); index++) {
+            double x = left + (width - left - right) * index / Math.max(1, losses.size() - 1);
+            double y = top + (maximum - losses.get(index)) / range * (height - top - bottom);
+            points.append(String.format(java.util.Locale.US, "%.2f,%.2f ", x, y));
+        }
+        svg.append("<polyline fill=\"none\" stroke=\"#1769aa\" stroke-width=\"2\" points=\"")
+                .append(points).append("\"/>\n")
+                .append("<text x=\"450\" y=\"490\" text-anchor=\"middle\" font-size=\"14\">Epoch</text>\n")
+                .append("<text transform=\"translate(16 270) rotate(-90)\" text-anchor=\"middle\" font-size=\"14\">Loss</text>\n")
+                .append("</svg>\n");
+        Files.writeString(svgFile, svg.toString());
     }
 
     private static int[] encode(String[] labels, Map<String, Integer> labelIds) {
